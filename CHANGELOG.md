@@ -10,6 +10,7 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Create CourseProducts widget
 - Add theme property to `Spinner` component
 - Add setting to limit the number of archived course runs displayed by
   default on a course detail page.
