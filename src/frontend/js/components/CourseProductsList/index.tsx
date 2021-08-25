@@ -1,11 +1,11 @@
-import { useIntl, defineMessages, FormattedMessage, FormattedNumber } from 'react-intl';
+import { defineMessages, FormattedMessage, FormattedNumber } from 'react-intl';
 import { CourseProvider, useCourse } from 'data/CourseProductsProvider';
 import { Spinner } from 'components/Spinner';
 import { SaleTunnel } from 'components/SaleTunnel';
 import * as Joanie from 'types/Joanie';
-import { useOrders } from 'hooks/useOrders';
+import { CourseRunList, EnrollCourseRunList, EnrolledCourseRun } from './CourseRunItems';
 
-const messages = defineMessages({
+export const messages = defineMessages({
   enrolled: {
     defaultMessage: 'Enrolled',
     description: 'Message displayed when authenticated user owned the product',
@@ -27,6 +27,11 @@ const messages = defineMessages({
     description: 'Text displayed when the product certificate has no description',
     id: 'components.CourseProductsList.certificateExplanation',
   },
+  enroll: {
+    defaultMessage: 'Enroll',
+    description: 'Text label for the enroll button',
+    id: 'components.CourseProductsList.enroll',
+  },
   loadingInitial: {
     defaultMessage: 'Loading course information...',
     description:
@@ -41,18 +46,33 @@ interface Props {
 
 const List = () => {
   const course = useCourse();
-  const orders = useOrders();
-  const intl = useIntl();
 
-  const formatDate = (date: string) =>
-    intl.formatDate(date, {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+  const getProductOrder = (productId: Joanie.Course['products'][0]['id']) => {
+    return course.item?.orders?.find((order) => order.product === productId);
+  };
+
+  const isOwned = (productId: Joanie.Course['products'][0]['id']) => {
+    return Boolean(getProductOrder(productId));
+  };
+
+  const getCourseRunEnrollment = (
+    productId: string,
+    targetCourse: Joanie.CourseProductTargetCourse,
+  ) => {
+    const resourceLinks = targetCourse.course_runs.map(({ resource_link }) => resource_link);
+    const order = course.item?.orders?.find(({ product }) => product === productId);
+    if (!order) return undefined;
+
+    const enrollment = order.enrollments.find(({ is_active, resource_link }) => {
+      return is_active && resourceLinks.includes(resource_link);
     });
 
-  const isOwned = (productId: string) =>
-    !!orders.items?.find((o) => o.product === productId && o.course === course.item!.code);
+    return enrollment;
+  };
+
+  const isEnrolled = (productId: string, targetCourse: Joanie.CourseProductTargetCourse) => {
+    return !!getCourseRunEnrollment(productId, targetCourse)?.is_active;
+  };
 
   const generateKey = (tree: object) =>
     Object.entries(tree).reduce((key, [property, value]) => {
@@ -61,6 +81,7 @@ const List = () => {
       return key;
     }, '');
 
+  // - useCourse hook is fetching data
   if (course.states.fetching) {
     return (
       <Spinner aria-labelledby="loading-course">
@@ -70,6 +91,8 @@ const List = () => {
       </Spinner>
     );
   }
+
+  // - There is no related course from Joanie
   if (!course.item) return null;
 
   return (
@@ -106,21 +129,24 @@ const List = () => {
                       <FormattedMessage {...messages.end} />
                     </strong>
                   </header>
-                  <ol className="course-item__course-run-list">
-                    {target_course.course_runs.map((courseRun) => (
-                      <li
-                        key={generateKey({
-                          product: product.id,
-                          course: course.item!.code,
-                          courseRun: courseRun.id,
-                        })}
-                        className="course-run-item"
-                      >
-                        <span className="course-run-item__date">{formatDate(courseRun.start)}</span>
-                        <span className="course-run-item__date">{formatDate(courseRun.end)}</span>
-                      </li>
-                    ))}
-                  </ol>
+                  {!isOwned(product.id) && (
+                    <CourseRunList
+                      baseKey={generateKey({ product: product.id, course: target_course.code })}
+                      courseRuns={target_course.course_runs}
+                    />
+                  )}
+                  {isOwned(product.id) && !isEnrolled(product.id, target_course) && (
+                    <EnrollCourseRunList
+                      baseKey={generateKey({ product: product.id, course: target_course.code })}
+                      courseRuns={target_course.course_runs}
+                      order={getProductOrder(product.id)!}
+                    />
+                  )}
+                  {isOwned(product.id) && isEnrolled(product.id, target_course) && (
+                    <EnrolledCourseRun
+                      courseRun={getCourseRunEnrollment(product.id, target_course)!}
+                    />
+                  )}
                 </section>
               </li>
             ))}
