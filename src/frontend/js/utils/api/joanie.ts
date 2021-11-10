@@ -133,6 +133,10 @@ const API = (): Joanie.API => {
     courseRuns: {
       // TODO Add Joanie course run routes
     },
+    payments: {
+      abort: configuration.endpoint.concat('/api/payments/abort/'),
+      create: configuration.endpoint.concat('/api/payments/create/'),
+    },
   };
 
   return {
@@ -282,6 +286,24 @@ const API = (): Joanie.API => {
           .catch(handleError()),
     },
     courseRuns: {},
+    payments: {
+      abort: async (payment_id: string) =>
+        fetchWithJWT(ROUTES.payments.abort, {
+          method: 'POST',
+          headers: getDefaultHeaders(),
+          body: JSON.stringify({ id: payment_id }),
+        })
+          .then(checkStatus)
+          .catch(handleError()),
+      create: async (payload) =>
+        fetchWithJWT(ROUTES.payments.create, {
+          method: 'POST',
+          headers: getDefaultHeaders(),
+          body: JSON.stringify(payload),
+        })
+          .then(checkStatus)
+          .catch(handleError()),
+    },
   };
 };
 
